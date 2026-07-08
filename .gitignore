@@ -1,0 +1,13 @@
+node_modules/
+client/electron_app/node_modules/
+build/
+tmp/
+.agents/
+.codex/
+backup_server_data/
+*.log
+*.bak
+*.bak.enc
+server.log
+.vscode/
+.DS_Store

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>个人云备份系统</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <h1>个人云备份系统</h1>
+      <label>服务器地址<input id="serverUrl" type="text" /></label>
+      <label>C++ 核心程序<input id="corePath" type="text" /></label>
+      <label>最大云端保留数<input id="maxBackups" type="number" min="1" value="10" /></label>
+      <button id="saveConfig">保存配置</button>
+      <button id="checkServer">检查服务器</button>
+      <div id="serverState" class="state">未连接</div>
+    </aside>
+
+    <main>
+      <section class="panel">
+        <div class="section-title">
+          <h2>备份并上传</h2>
+          <button id="runBackup">开始备份</button>
+        </div>
+        <div class="grid">
+          <label>源目录<input id="sourceDir" type="text" /></label>
+          <button id="chooseSource" class="small">选择</button>
+          <label>备份密码<input id="backupPassword" type="password" /></label>
+          <label>扩展名筛选<input id="extensions" type="text" placeholder=".txt,.cpp,.docx" /></label>
+          <label>文件名关键词<input id="nameContains" type="text" /></label>
+          <label>最小大小(B)<input id="minSize" type="number" min="0" /></label>
+          <label>最大大小(B)<input id="maxSize" type="number" min="0" /></label>
+          <label>修改时间晚于<input id="modifiedAfter" type="text" placeholder="2026-07-01 00:00:00" /></label>
+        </div>
+        <div class="schedule">
+          <label>定时备份间隔(分钟)<input id="scheduleInterval" type="number" min="1" value="60" /></label>
+          <button id="startSchedule">启动定时备份</button>
+          <button id="stopSchedule">停止定时备份</button>
+          <span id="scheduleState">未启动</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>云端备份列表</h2>
+          <button id="refreshList">刷新</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>文件名</th>
+              <th>大小</th>
+              <th>上传时间</th>
+              <th>最近使用</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="backupRows"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>下载并还原</h2>
+          <button id="runRestore">下载还原</button>
+        </div>
+        <div class="grid restore-grid">
+          <label>选中文件<input id="selectedFile" type="text" readonly /></label>
+          <label>还原目录<input id="restoreDir" type="text" /></label>
+          <button id="chooseRestore" class="small">选择</button>
+          <label>还原密码<input id="restorePassword" type="password" /></label>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="section-title">
+          <h2>运行日志</h2>
+          <button id="clearLog">清空</button>
+        </div>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
