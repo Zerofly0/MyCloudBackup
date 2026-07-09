@@ -6,11 +6,25 @@ const { spawn } = require('child_process');
 
 const isWin = process.platform === 'win32';
 const coreName = isWin ? 'backup_core.exe' : 'backup_core';
-const defaultCorePath = path.resolve(__dirname, '..', '..', 'build', coreName);
 const tempRoot = path.join(app.getPath('userData'), 'temp');
 const downloadRoot = path.join(app.getPath('userData'), 'downloads');
 const configDir = path.join(app.getPath('userData'), 'config');
 const configFile = path.join(configDir, 'client_config.json');
+
+function bundledCorePath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'bin', coreName);
+  }
+  return path.resolve(__dirname, '..', '..', 'build', coreName);
+}
+
+function resolveCorePath(savedCorePath) {
+  const fallback = bundledCorePath();
+  if (savedCorePath && fs.existsSync(savedCorePath)) {
+    return savedCorePath;
+  }
+  return fallback;
+}
 
 function ensureDirs() {
   fs.mkdirSync(tempRoot, { recursive: true });
@@ -20,9 +34,10 @@ function ensureDirs() {
 
 function readConfig() {
   ensureDirs();
+  const defaultCorePath = bundledCorePath();
   if (!fs.existsSync(configFile)) {
     return {
-      serverUrl: 'http://127.0.0.1:8080',
+      serverUrl: 'http://8.137.100.109:8080',
       maxBackups: 10,
       scheduleInterval: 60,
       lastSourceDir: '',
@@ -30,7 +45,16 @@ function readConfig() {
       corePath: defaultCorePath
     };
   }
-  return { corePath: defaultCorePath, ...JSON.parse(fs.readFileSync(configFile, 'utf8')) };
+  const saved = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+  return {
+    serverUrl: 'http://8.137.100.109:8080',
+    maxBackups: 10,
+    scheduleInterval: 60,
+    lastSourceDir: '',
+    lastRestoreDir: '',
+    ...saved,
+    corePath: resolveCorePath(saved.corePath)
+  };
 }
 
 function saveConfig(config) {
@@ -79,7 +103,17 @@ ipcMain.handle('dialog:directory', async (_, title) => {
 function runCore(args, onLog) {
   return new Promise((resolve) => {
     const config = readConfig();
-    const child = spawn(config.corePath || defaultCorePath, args, { windowsHide: true });
+    const corePath = resolveCorePath(config.corePath);
+    if (!fs.existsSync(corePath)) {
+      resolve({
+        success: false,
+        message: `C++ core program not found: ${corePath}`,
+        stdout: '',
+        stderr: ''
+      });
+      return;
+    }
+    const child = spawn(corePath, args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => {
