@@ -250,7 +250,7 @@ static std::string sha256File(const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
     if (!in) throw std::runtime_error("cannot open file for hash: " + pathToUtf8(path));
     Sha256 sha;
-    std::array<uint8_t, 1024 * 1024> buf{};
+    std::array<uint8_t, 64 * 1024> buf{};
     while (in) {
         in.read(reinterpret_cast<char*>(buf.data()), buf.size());
         if (in.gcount() > 0) sha.update(buf.data(), static_cast<size_t>(in.gcount()));
