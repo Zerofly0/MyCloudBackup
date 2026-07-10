@@ -34,6 +34,7 @@ function formConfig() {
 function backupPayload() {
   return {
     sourceDir: $('sourceDir').value.trim(),
+    packageName: $('packageName').value.trim(),
     password: $('backupPassword').value,
     filter: {
       extensions: $('extensions').value.trim(),
@@ -88,8 +89,12 @@ async function runBackupOnce() {
   await saveConfig();
   if (!$('sourceDir').value.trim()) throw new Error('请选择源目录');
   if (!$('backupPassword').value) throw new Error('请输入备份密码');
+  const listData = await window.backupApi.list($('serverUrl').value.trim());
+  const existingNames = (listData.records || []).map((record) => record.filename);
   appendLog('开始调用 C++ 核心程序生成备份包');
-  const result = await window.backupApi.backup(backupPayload());
+  const payload = backupPayload();
+  payload.existingNames = existingNames;
+  const result = await window.backupApi.backup(payload);
   if (!result.success) throw new Error(result.message || '备份失败');
   appendLog(`本地备份完成：${result.outputFile}`);
   appendLog('开始上传云端');

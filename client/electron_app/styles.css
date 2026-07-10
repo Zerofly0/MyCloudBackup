@@ -111,7 +111,7 @@ button.small {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 86px 1fr 1fr;
+  grid-template-columns: 1fr 130px 1fr 1fr;
   gap: 12px;
   align-items: end;
 }

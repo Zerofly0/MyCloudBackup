@@ -147,6 +147,31 @@ function runCore(args, onLog) {
   });
 }
 
+function sanitizePackageName(name, fallback) {
+  let base = String(name || fallback || "").trim();
+  if (base.toLowerCase().endsWith(".bak.enc")) {
+    base = base.slice(0, -8);
+  }
+  base = base
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/^\.+|\.+$/g, "");
+  return base || fallback;
+}
+
+
+function makeUniquePackageName(baseName, existingNames) {
+  const used = new Set((existingNames || []).map((name) => String(name).toLowerCase()));
+  let candidate = baseName;
+  let index = 1;
+  while (used.has(`${candidate}.bak.enc`.toLowerCase())) {
+    candidate = `${baseName}(${index})`;
+    index += 1;
+  }
+  return candidate;
+}
+
+
 function writeFilterFile(filter) {
   const file = path.join(tempRoot, `filter_${Date.now()}.json`);
   fs.writeFileSync(file, JSON.stringify(filter, null, 2));
@@ -156,7 +181,11 @@ function writeFilterFile(filter) {
 ipcMain.handle('core:backup', async (event, payload) => {
   ensureDirs();
   const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
-  const output = path.join(tempRoot, `backup_${timestamp}.bak.enc`);
+  const packageBaseName = makeUniquePackageName(
+    sanitizePackageName(payload.packageName, `backup_${timestamp}`),
+    payload.existingNames
+  );
+  const output = path.join(tempRoot, `${packageBaseName}.bak.enc`);
   const filterFile = writeFilterFile(payload.filter || {});
   return runCore([
     'backup',
