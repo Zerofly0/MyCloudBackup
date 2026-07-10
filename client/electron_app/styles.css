@@ -1,13 +1,27 @@
 :root {
   color-scheme: light;
-  --bg: #f5f7fb;
-  --ink: #1d2433;
-  --muted: #687385;
-  --line: #d9e0ea;
-  --panel: #ffffff;
-  --accent: #16745f;
-  --accent-dark: #0d5a49;
-  --danger: #b73636;
+  --bg-start: #B7B7EB;
+  --bg-end: #9BBBE1;
+  --ink: #2f3238;
+  --muted: #6f737c;
+  --neutral: #9D9EA3;
+  --line: rgba(157, 158, 163, 0.32);
+  --panel: rgba(255, 255, 255, 0.78);
+  --panel-strong: rgba(255, 255, 255, 0.84);
+  --sidebar: rgba(255, 255, 255, 0.76);
+  --sidebar-dark: rgba(234, 184, 131, 0.22);
+  --sidebar-soft: rgba(157, 158, 163, 0.42);
+  --sidebar-input: rgba(255, 255, 255, 0.88);
+  --text-on-dark: #2f3238;
+  --button-ink: #ffffff;
+  --accent: #5E86AD;
+  --accent-dark: #466F98;
+  --accent-soft: #B7B7EB;
+  --danger: #F09BA0;
+  --danger-dark: #dc8389;
+  --table-head: rgba(183, 183, 235, 0.34);
+  --log-bg: #4c5566;
+  --log-ink: #EAB883;
 }
 
 * {
@@ -19,15 +33,17 @@ body {
   display: grid;
   grid-template-columns: 300px 1fr;
   min-height: 100vh;
-  background: var(--bg);
+  background-image: linear-gradient(135deg, #B7B7EB 0%, #9BBBE1 55%, #EAB883 100%);
   color: var(--ink);
   font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 }
 
 .sidebar {
   padding: 24px 18px;
-  background: #202832;
-  color: #f7fafc;
+  background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-dark) 100%);
+  border-right: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  color: var(--text-on-dark);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -52,6 +68,7 @@ main {
 
 .panel {
   background: var(--panel);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 18px;
@@ -80,14 +97,14 @@ input {
   border-radius: 6px;
   padding: 0 10px;
   font: inherit;
-  background: #fff;
+  background: var(--panel-strong);
   color: var(--ink);
 }
 
 .sidebar input {
-  border-color: #3a4655;
-  background: #151b22;
-  color: #fff;
+  border-color: var(--sidebar-soft);
+  background: var(--sidebar-input);
+  color: var(--text-on-dark);
 }
 
 button {
@@ -96,7 +113,7 @@ button {
   border-radius: 6px;
   padding: 0 14px;
   background: var(--accent);
-  color: #fff;
+  color: var(--button-ink);
   font-weight: 700;
   cursor: pointer;
 }
@@ -135,10 +152,10 @@ button.small {
 
 .state {
   min-height: 32px;
-  border: 1px solid #3a4655;
+  border: 1px solid var(--sidebar-soft);
   border-radius: 6px;
   padding: 7px 10px;
-  color: #cdd8e4;
+  color: var(--muted);
 }
 
 table {
@@ -159,7 +176,7 @@ td {
 
 th {
   color: var(--muted);
-  background: #f8fafc;
+  background: var(--table-head);
 }
 
 td.actions {
@@ -176,6 +193,10 @@ td.actions button.delete {
   background: var(--danger);
 }
 
+td.actions button.delete:hover {
+  background: var(--danger-dark);
+}
+
 .log-panel pre {
   height: 180px;
   overflow: auto;
@@ -183,8 +204,8 @@ td.actions button.delete {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 12px;
-  background: #111827;
-  color: #d5e7d7;
+  background: var(--log-bg);
+  color: var(--log-ink);
   font-size: 12px;
   line-height: 1.55;
 }
