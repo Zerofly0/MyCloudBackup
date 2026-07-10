@@ -113,6 +113,7 @@ function runCore(args, onLog) {
       });
       return;
     }
+    onLog(`C++ core path: ${corePath}\n`);
     const child = spawn(corePath, args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
@@ -126,12 +127,21 @@ function runCore(args, onLog) {
       stderr += text;
       onLog(text);
     });
-    child.on('error', (err) => resolve({ success: false, message: err.message, stdout, stderr }));
+    child.on('error', (err) => {
+      onLog(`C++ core start error: ${err.message}\n`);
+      resolve({ success: false, message: err.message, stdout, stderr });
+    });
     child.on('close', (code) => {
       const lines = (stdout + '\n' + stderr).split(/\r?\n/).filter(Boolean);
       const jsonLine = [...lines].reverse().find((line) => line.trim().startsWith('{'));
       let parsed = {};
       try { parsed = jsonLine ? JSON.parse(jsonLine) : {}; } catch (_) {}
+      if (code !== 0) {
+        onLog(`C++ core exited with code: ${code}\n`);
+      }
+      if (!jsonLine && code !== 0) {
+        onLog('C++ core did not return a JSON result.\n');
+      }
       resolve({ success: code === 0 && parsed.success !== false, code, stdout, stderr, ...parsed });
     });
   });

@@ -11,5 +11,5 @@ if (!(Test-Path $Gxx)) {
 }
 
 New-Item -ItemType Directory -Force -Path $Build | Out-Null
-& $Gxx -std=c++17 -O2 -Wall -Wextra -municode -o $Output $Source
+& $Gxx -std=c++17 -O2 -Wall -Wextra -municode -static -static-libgcc -static-libstdc++ -o $Output $Source
 Write-Host "built $Output"
