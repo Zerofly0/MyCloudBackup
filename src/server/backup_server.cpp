@@ -13,6 +13,9 @@
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <thread>
+#include <mutex>
 #include <unistd.h>
 #include <vector>
 
@@ -36,6 +39,7 @@ struct ServerState {
 };
 
 static ServerState state;
+static std::mutex stateMutex;
 
 static std::string nowText() {
     auto now = std::chrono::system_clock::now();
@@ -279,12 +283,13 @@ static void handleClient(int fd) {
     } else if (method == "GET" && target == "/health") {
         sendAll(fd, response("200 OK", "application/json", "{\"status\":\"ok\"}"));
     } else if (method == "GET" && target == "/list") {
+        std::lock_guard<std::mutex> lock(stateMutex);
         sendAll(fd, response("200 OK", "application/json", metadataJson()));
     } else if (method == "POST" && target.rfind("/upload", 0) == 0) {
         std::string filename = queryParam(target, "filename");
         if (!safeName(filename)) filename = "backup_" + std::to_string(std::time(nullptr)) + ".bak.enc";
         std::string maxText = queryParam(target, "maxBackups");
-        if (!maxText.empty()) state.maxBackups = std::max(1, std::stoi(maxText));
+        int requestedMaxBackups = maxText.empty() ? 0 : std::max(1, std::stoi(maxText));
         fs::path dest = state.backups / filename;
         std::ofstream out(dest, std::ios::binary);
         size_t written = std::min(body.size(), contentLength);
@@ -303,7 +308,6 @@ static void handleClient(int fd) {
             sendAll(fd, response("400 Bad Request", "application/json", "{\"success\":false,\"message\":\"incomplete upload\"}"));
             return;
         }
-        state.records.erase(std::remove_if(state.records.begin(), state.records.end(), [&](const Record& r) { return r.filename == filename; }), state.records.end());
         Record r;
         r.filename = filename;
         r.size = fs::file_size(dest);
@@ -311,23 +315,34 @@ static void handleClient(int fd) {
         r.lastAccessTime = r.uploadTime;
         r.packageHash = sha256File(dest);
         r.storagePath = "backups/" + filename;
-        state.records.push_back(r);
-        evictIfNeeded();
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            if (requestedMaxBackups > 0) state.maxBackups = requestedMaxBackups;
+            state.records.erase(std::remove_if(state.records.begin(), state.records.end(), [&](const Record& item) { return item.filename == filename; }), state.records.end());
+            state.records.push_back(r);
+            evictIfNeeded();
+        }
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"upload success\"}"));
     } else if (method == "GET" && target.rfind("/download/", 0) == 0) {
         std::string filename = urlDecode(target.substr(std::string("/download/").size()));
         if (!safeName(filename) || !fs::exists(state.backups / filename)) {
             sendAll(fd, response("404 Not Found", "application/json", "{\"success\":false,\"message\":\"file not found\"}"));
         } else {
-            for (auto& r : state.records) if (r.filename == filename) r.lastAccessTime = nowText();
-            saveMetadata();
+            {
+                std::lock_guard<std::mutex> lock(stateMutex);
+                for (auto& r : state.records) if (r.filename == filename) r.lastAccessTime = nowText();
+                saveMetadata();
+            }
             sendFile(fd, state.backups / filename);
         }
     } else if (method == "DELETE" && target.rfind("/delete/", 0) == 0) {
         std::string filename = urlDecode(target.substr(std::string("/delete/").size()));
-        if (safeName(filename)) fs::remove(state.backups / filename);
-        state.records.erase(std::remove_if(state.records.begin(), state.records.end(), [&](const Record& r) { return r.filename == filename; }), state.records.end());
-        saveMetadata();
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            if (safeName(filename)) fs::remove(state.backups / filename);
+            state.records.erase(std::remove_if(state.records.begin(), state.records.end(), [&](const Record& r) { return r.filename == filename; }), state.records.end());
+            saveMetadata();
+        }
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"delete success\"}"));
     } else if (method == "POST" && target == "/config/max-backups") {
         while (body.size() < contentLength) {
@@ -335,13 +350,30 @@ static void handleClient(int fd) {
             if (n <= 0) break;
             body.append(buf.data(), n);
         }
-        int value = static_cast<int>(getJsonNumber(body, "maxBackups"));
-        if (value > 0) state.maxBackups = value;
-        evictIfNeeded();
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            int value = static_cast<int>(getJsonNumber(body, "maxBackups"));
+            if (value > 0) state.maxBackups = value;
+            evictIfNeeded();
+        }
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"config updated\"}"));
     } else {
         sendAll(fd, response("404 Not Found", "application/json", "{\"success\":false,\"message\":\"not found\"}"));
     }
+}
+
+static void handleClientSession(int fd) {
+    timeval timeout{};
+    timeout.tv_sec = 60;
+    timeout.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    try {
+        handleClient(fd);
+    } catch (const std::exception& e) {
+        sendAll(fd, response("500 Internal Server Error", "application/json", std::string("{\"success\":false,\"message\":\"") + escapeJson(e.what()) + "\"}"));
+    }
+    close(fd);
 }
 
 int main(int argc, char** argv) {
@@ -365,8 +397,6 @@ int main(int argc, char** argv) {
     while (true) {
         int fd = accept(server, nullptr, nullptr);
         if (fd < 0) continue;
-        try { handleClient(fd); }
-        catch (const std::exception& e) { sendAll(fd, response("500 Internal Server Error", "application/json", std::string("{\"success\":false,\"message\":\"") + escapeJson(e.what()) + "\"}")); }
-        close(fd);
+        std::thread(handleClientSession, fd).detach();
     }
 }
