@@ -274,11 +274,6 @@ static void handleClient(int fd) {
         std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
         if (lower.rfind("content-length:", 0) == 0) contentLength = std::stoull(line.substr(15));
     }
-    while (body.size() < contentLength) {
-        ssize_t n = recv(fd, buf.data(), buf.size(), 0);
-        if (n <= 0) break;
-        body.append(buf.data(), n);
-    }
     if (method == "OPTIONS") {
         sendAll(fd, response("204 No Content", "text/plain", ""));
     } else if (method == "GET" && target == "/health") {
@@ -292,8 +287,22 @@ static void handleClient(int fd) {
         if (!maxText.empty()) state.maxBackups = std::max(1, std::stoi(maxText));
         fs::path dest = state.backups / filename;
         std::ofstream out(dest, std::ios::binary);
-        out.write(body.data(), static_cast<std::streamsize>(body.size()));
+        size_t written = std::min(body.size(), contentLength);
+        if (written > 0) out.write(body.data(), static_cast<std::streamsize>(written));
+        while (written < contentLength) {
+            ssize_t n = recv(fd, buf.data(), buf.size(), 0);
+            if (n <= 0) break;
+            size_t remaining = contentLength - written;
+            size_t toWrite = std::min(static_cast<size_t>(n), remaining);
+            out.write(buf.data(), static_cast<std::streamsize>(toWrite));
+            written += toWrite;
+        }
         out.close();
+        if (written != contentLength) {
+            fs::remove(dest);
+            sendAll(fd, response("400 Bad Request", "application/json", "{\"success\":false,\"message\":\"incomplete upload\"}"));
+            return;
+        }
         state.records.erase(std::remove_if(state.records.begin(), state.records.end(), [&](const Record& r) { return r.filename == filename; }), state.records.end());
         Record r;
         r.filename = filename;
@@ -321,6 +330,11 @@ static void handleClient(int fd) {
         saveMetadata();
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"delete success\"}"));
     } else if (method == "POST" && target == "/config/max-backups") {
+        while (body.size() < contentLength) {
+            ssize_t n = recv(fd, buf.data(), buf.size(), 0);
+            if (n <= 0) break;
+            body.append(buf.data(), n);
+        }
         int value = static_cast<int>(getJsonNumber(body, "maxBackups"));
         if (value > 0) state.maxBackups = value;
         evictIfNeeded();

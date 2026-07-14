@@ -218,10 +218,18 @@ ipcMain.handle('cloud:list', async (_, serverUrl) => {
 });
 
 ipcMain.handle('cloud:upload', async (_, payload) => {
-  const data = fs.readFileSync(payload.filePath);
   const filename = path.basename(payload.filePath);
+  const stat = fs.statSync(payload.filePath);
   const url = `${payload.serverUrl}/upload?filename=${encodeURIComponent(filename)}&maxBackups=${encodeURIComponent(payload.maxBackups || 10)}`;
-  const res = await fetch(url, { method: 'POST', body: data });
+  const res = await fetch(url, {
+    method: 'POST',
+    body: fs.createReadStream(payload.filePath),
+    duplex: 'half',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': String(stat.size)
+    }
+  });
   if (!res.ok) throw new Error(`upload failed: ${res.status}`);
   return res.json();
 });
