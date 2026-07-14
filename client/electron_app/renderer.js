@@ -34,8 +34,8 @@ function formConfig() {
 function backupPayload() {
   return {
     sourceDir: $('sourceDir').value.trim(),
-    packageName: $('packageName').value.trim(),
     password: $('backupPassword').value,
+    packageName: $('packageName').value.trim(),
     filter: {
       extensions: $('extensions').value.trim(),
       nameContains: $('nameContains').value.trim(),
@@ -85,16 +85,33 @@ async function refreshList() {
   }
 }
 
+async function refreshListWithRetry(retries = 3, delayMs = 1000) {
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      await refreshList();
+      return true;
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  return false;
+}
+
 async function runBackupOnce() {
   await saveConfig();
   if (!$('sourceDir').value.trim()) throw new Error('请选择源目录');
   if (!$('backupPassword').value) throw new Error('请输入备份密码');
-  const listData = await window.backupApi.list($('serverUrl').value.trim());
-  const existingNames = (listData.records || []).map((record) => record.filename);
+  let existingNames = [];
+  try {
+    const data = await window.backupApi.list($('serverUrl').value.trim());
+    existingNames = (data.records || []).map((record) => record.filename);
+  } catch (err) {
+    existingNames = [];
+  }
   appendLog('开始调用 C++ 核心程序生成备份包');
-  const payload = backupPayload();
-  payload.existingNames = existingNames;
-  const result = await window.backupApi.backup(payload);
+  const result = await window.backupApi.backup({ ...backupPayload(), existingNames });
   if (!result.success) throw new Error(result.message || '备份失败');
   appendLog(`本地备份完成：${result.outputFile}`);
   appendLog('开始上传云端');
@@ -104,7 +121,7 @@ async function runBackupOnce() {
     maxBackups: Number($('maxBackups').value || 10)
   });
   appendLog('上传完成');
-  await refreshList();
+  await refreshListWithRetry();
 }
 
 async function runRestore() {
