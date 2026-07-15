@@ -1,3 +1,4 @@
+//冒烟测试：备份、恢复、过滤规则、一致性
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot

@@ -1,14 +1,30 @@
+//renderer.js —— 渲染进程主逻辑（UI 交互层）
+
+//职责：
+//   1. 页面加载时初始化配置（从主进程读取并填充表单）
+//   2. 绑定所有 UI 按钮的事件监听器
+//   3. 通过 window.backupApi 调用主进程能力
+//   4. 管理云端列表展示、选择、删除
+//   5. 编排「备份→上传」和「下载→还原」完整流程
+//   6. 管理定时备份、日志显示与错误捕获
+
+//快捷 DOM 查询，等价于 document.getElementById
 const $ = (id) => document.getElementById(id);
 
+//定时备份的 setInterval 句柄 
 let scheduleTimer = null;
+
+//当前在云端列表中「已选择」的备份记录，用于还原操作
 let selectedRecord = null;
 
+//向日志区追加一行带时间戳的文本，自动滚动到底部
 function appendLog(text) {
   const stamp = new Date().toLocaleString();
   $('log').textContent += `[${stamp}] ${text.trim()}\n`;
   $('log').scrollTop = $('log').scrollHeight;
 }
 
+//将字节数转化为传统单位
 function formatBytes(value) {
   const units = ['B', 'KB', 'MB', 'GB'];
   let n = Number(value || 0);
@@ -20,6 +36,7 @@ function formatBytes(value) {
   return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
+//从表单收集当前配置，构建配置对象
 function formConfig() {
   return {
     serverUrl: $('serverUrl').value.trim(),
@@ -31,6 +48,7 @@ function formConfig() {
   };
 }
 
+//从表单收集备份参数，包含源目录、包名、密码、文件筛选规则
 function backupPayload() {
   return {
     sourceDir: $('sourceDir').value.trim(),
@@ -46,11 +64,14 @@ function backupPayload() {
   };
 }
 
+//保存当前表单配置到本地持久化文件
 async function saveConfig() {
   await window.backupApi.saveConfig(formConfig());
   appendLog('配置已保存');
 }
 
+//刷新云端备份列表
+//从服务器获取最新记录，重新渲染表格行
 async function refreshList() {
   const data = await window.backupApi.list($('serverUrl').value.trim());
   const rows = $('backupRows');
@@ -64,6 +85,7 @@ async function refreshList() {
       <td>${record.lastAccessTime || ''}</td>
       <td class="actions"></td>
     `;
+    //每行包含「选择」和「删除」两个操作按钮
     const actions = tr.querySelector('.actions');
     const select = document.createElement('button');
     select.textContent = '选择';
@@ -85,6 +107,8 @@ async function refreshList() {
   }
 }
 
+//带重试的列表刷新
+//备份上传后服务器可能尚未完成索引，最多重试 3 次，每次间隔 1 秒
 async function refreshListWithRetry(retries = 3, delayMs = 1000) {
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
@@ -99,6 +123,8 @@ async function refreshListWithRetry(retries = 3, delayMs = 1000) {
   return false;
 }
 
+//执行单次「备份并上传」完整流程
+//保存配置 → 校验输入 → 获取云端已有文件名（去重）→ 调 C++ 核心打包加密 → 上传云端 → 刷新列表
 async function runBackupOnce() {
   await saveConfig();
   if (!$('sourceDir').value.trim()) throw new Error('请选择源目录');
@@ -124,6 +150,8 @@ async function runBackupOnce() {
   await refreshListWithRetry();
 }
 
+//执行「下载并还原」完整流程
+//保存配置 → 校验输入 → 从云端下载 → 调 C++ 核心解密还原
 async function runRestore() {
   await saveConfig();
   const filename = $('selectedFile').value.trim();
@@ -142,6 +170,7 @@ async function runRestore() {
   appendLog(`还原完成：${result.restoredCount} 个文件，校验失败 ${result.hashFailedCount} 个`);
 }
 
+//统一错误捕获包装器，避免未捕获的 Promise 异常导致程序崩溃
 async function guarded(task) {
   try {
     await task();
@@ -150,9 +179,12 @@ async function guarded(task) {
   }
 }
 
+//注册主进程日志推送监听
 window.backupApi.onLog((text) => appendLog(text));
 
+//页面加载完成后初始化 UI
 window.addEventListener('DOMContentLoaded', async () => {
+  // 从主进程加载持久化配置，填充表单
   const config = await window.backupApi.loadConfig();
   $('serverUrl').value = config.serverUrl || 'http://127.0.0.1:8080';
   $('maxBackups').value = config.maxBackups || 10;
@@ -161,6 +193,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   $('restoreDir').value = config.lastRestoreDir || '';
   $('corePath').value = config.corePath || '';
 
+  //绑定按钮事件
   $('saveConfig').addEventListener('click', () => guarded(saveConfig));
   $('checkServer').addEventListener('click', () => guarded(async () => {
     const result = await window.backupApi.health($('serverUrl').value.trim());

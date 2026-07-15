@@ -1,226 +1,264 @@
-:root {
-  color-scheme: light;
-  --bg-start: #B7B7EB;
-  --bg-end: #9BBBE1;
-  --ink: #2f3238;
-  --muted: #6f737c;
-  --neutral: #9D9EA3;
-  --line: rgba(157, 158, 163, 0.32);
-  --panel: rgba(255, 255, 255, 0.78);
-  --panel-strong: rgba(255, 255, 255, 0.84);
-  --sidebar: rgba(255, 255, 255, 0.76);
-  --sidebar-dark: rgba(234, 184, 131, 0.22);
-  --sidebar-soft: rgba(157, 158, 163, 0.42);
-  --sidebar-input: rgba(255, 255, 255, 0.88);
-  --text-on-dark: #2f3238;
-  --button-ink: #ffffff;
-  --accent: #5E86AD;
-  --accent-dark: #466F98;
-  --accent-soft: #B7B7EB;
-  --danger: #F09BA0;
-  --danger-dark: #dc8389;
-  --table-head: rgba(183, 183, 235, 0.34);
-  --log-bg: #4c5566;
-  --log-ink: #EAB883;
-}
+ /*
+ styles.css —— 个人云备份系统 Electron 客户端样式表
+  设计风格：毛玻璃（glassmorphism）+ 渐变色背景
+  布局：左侧栏 + 右侧主内容区（CSS Grid 两栏）
+  响应式：窄屏（<=980px）自动切换单栏
+ */
 
-* {
-  box-sizing: border-box;
-}
+ /*  1. CSS 变量定义（主题色板）*/
+ :root {
+   color-scheme: light;
+   --bg-start: #B7B7EB;
+   --bg-end: #9BBBE1;
+   --ink: #2f3238;
+   --muted: #6f737c;
+   --neutral: #9D9EA3;
+   --line: rgba(157, 158, 163, 0.32);
+   --panel: rgba(255, 255, 255, 0.78);
+   --panel-strong: rgba(255, 255, 255, 0.84);
+   --sidebar: rgba(255, 255, 255, 0.76);
+   --sidebar-dark: rgba(234, 184, 131, 0.22);
+   --sidebar-soft: rgba(157, 158, 163, 0.42);
+   --sidebar-input: rgba(255, 255, 255, 0.88);
+   --text-on-dark: #2f3238;
+   --button-ink: #ffffff;
+   --accent: #5E86AD;
+   --accent-dark: #466F98;
+   --accent-soft: #B7B7EB;
+   --danger: #F09BA0;
+   --danger-dark: #dc8389;
+   --table-head: rgba(183, 183, 235, 0.34);
+   --log-bg: #4c5566;
+   --log-ink: #EAB883;
+ }
 
-body {
-  margin: 0;
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  min-height: 100vh;
-  background-image: linear-gradient(135deg, #B7B7EB 0%, #9BBBE1 55%, #EAB883 100%);
-  color: var(--ink);
-  font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
-}
+ /* 2. 全局重置与基础布局*/
 
-.sidebar {
-  padding: 24px 18px;
-  background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-dark) 100%);
-  border-right: 1px solid var(--line);
-  backdrop-filter: blur(8px);
-  color: var(--text-on-dark);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
+ /* 盒模型重置 */
+ * {
+   box-sizing: border-box;
+ }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 24px;
-  font-weight: 700;
-}
+ /* 页面主体：CSS Grid 两栏布局（左300px + 右自适应） */
+ body {
+   margin: 0;
+   display: grid;
+   grid-template-columns: 300px 1fr;
+   min-height: 100vh;
+   background-image: linear-gradient(135deg, #B7B7EB 0%, #9BBBE1 55%, #EAB883 100%);
+   color: var(--ink);
+   font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+ }
 
-h2 {
-  margin: 0;
-  font-size: 18px;
-}
+ /* 3. 左侧边栏（毛玻璃 + 渐变背景）*/
+ .sidebar {
+   padding: 24px 18px;
+   background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-dark) 100%);
+   border-right: 1px solid var(--line);
+   backdrop-filter: blur(8px);
+   color: var(--text-on-dark);
+   display: flex;
+   flex-direction: column;
+   gap: 14px;
+ }
 
-main {
-  padding: 22px;
-  display: grid;
-  gap: 16px;
-}
+ h1 {
+   margin: 0 0 8px;
+   font-size: 24px;
+   font-weight: 700;
+ }
 
-.panel {
-  background: var(--panel);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 18px;
-}
+ h2 {
+   margin: 0;
+   font-size: 18px;
+ }
 
-.section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
+ /*4. 右侧主内容区*/
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: inherit;
-  font-size: 13px;
-  font-weight: 600;
-}
+ /* 主内容区：子面板纵向排列 */
+ main {
+   padding: 22px;
+   display: grid;
+   gap: 16px;
+ }
 
-input {
-  min-height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0 10px;
-  font: inherit;
-  background: var(--panel-strong);
-  color: var(--ink);
-}
+ /* 内容面板（卡片）：毛玻璃 + 圆角 */
+ .panel {
+   background: var(--panel);
+   backdrop-filter: blur(6px);
+   border: 1px solid var(--line);
+   border-radius: 8px;
+   padding: 18px;
+ }
 
-.sidebar input {
-  border-color: var(--sidebar-soft);
-  background: var(--sidebar-input);
-  color: var(--text-on-dark);
-}
+ /* 面板标题行：标题靠左，按钮靠右 */
+ .section-title {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 12px;
+   margin-bottom: 14px;
+ }
 
-button {
-  min-height: 36px;
-  border: none;
-  border-radius: 6px;
-  padding: 0 14px;
-  background: var(--accent);
-  color: var(--button-ink);
-  font-weight: 700;
-  cursor: pointer;
-}
+ /* 标签：纵向排列（文字在上，输入框在下） */
+ label {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   color: inherit;
+   font-size: 13px;
+   font-weight: 600;
+ }
 
-button:hover {
-  background: var(--accent-dark);
-}
+ /* 通用输入框 */
+ input {
+   min-height: 36px;
+   border: 1px solid var(--line);
+   border-radius: 6px;
+   padding: 0 10px;
+   font: inherit;
+   background: var(--panel-strong);
+   color: var(--ink);
+ }
 
-button.small {
-  align-self: end;
-}
+ /* 侧边栏输入框：专属配色 */
+ .sidebar input {
+   border-color: var(--sidebar-soft);
+   background: var(--sidebar-input);
+   color: var(--text-on-dark);
+ }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 130px 1fr 1fr;
-  gap: 12px;
-  align-items: end;
-}
+ /* 通用按钮：蓝色背景 + 白色文字 */
+ button {
+   min-height: 36px;
+   border: none;
+   border-radius: 6px;
+   padding: 0 14px;
+   background: var(--accent);
+   color: var(--button-ink);
+   font-weight: 700;
+   cursor: pointer;
+ }
 
-.restore-grid {
-  grid-template-columns: 1fr 1fr 86px 1fr;
-}
+ /* 悬停加深 */
+ button:hover {
+   background: var(--accent-dark);
+ }
 
-.schedule {
-  display: flex;
-  align-items: end;
-  gap: 12px;
-  margin-top: 14px;
-  color: var(--muted);
-}
+ /* 小按钮：对齐到网格底部 */
+ button.small {
+   align-self: end;
+ }
 
-.schedule label {
-  width: 190px;
-  color: var(--ink);
-}
+ /*5. 表单网格布局*/
 
-.state {
-  min-height: 32px;
-  border: 1px solid var(--sidebar-soft);
-  border-radius: 6px;
-  padding: 7px 10px;
-  color: var(--muted);
-}
+ /* 备份表单：4 列网格 */
+ .grid {
+   display: grid;
+   grid-template-columns: 1fr 130px 1fr 1fr;
+   gap: 12px;
+   align-items: end;
+ }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
+ /* 还原表单：4 列 */
+ .restore-grid {
+   grid-template-columns: 1fr 1fr 86px 1fr;
+ }
 
-th,
-td {
-  border-bottom: 1px solid var(--line);
-  padding: 10px 8px;
-  text-align: left;
-  vertical-align: middle;
-  font-size: 13px;
-  word-break: break-word;
-}
+ /* 定时备份：横向排列 */
+ .schedule {
+   display: flex;
+   align-items: end;
+   gap: 12px;
+   margin-top: 14px;
+   color: var(--muted);
+ }
 
-th {
-  color: var(--muted);
-  background: var(--table-head);
-}
+ .schedule label {
+   width: 190px;
+   color: var(--ink);
+ }
 
-td.actions {
-  display: flex;
-  gap: 8px;
-}
+ /* 服务器状态指示器 */
+ .state {
+   min-height: 32px;
+   border: 1px solid var(--sidebar-soft);
+   border-radius: 6px;
+   padding: 7px 10px;
+   color: var(--muted);
+ }
 
-td.actions button {
-  min-height: 30px;
-  padding: 0 10px;
-}
+ /*6. 云端备份列表表格*/
 
-td.actions button.delete {
-  background: var(--danger);
-}
+ table {
+   width: 100%;
+   border-collapse: collapse;
+   table-layout: fixed;
+ }
 
-td.actions button.delete:hover {
-  background: var(--danger-dark);
-}
+ th,
+ td {
+   border-bottom: 1px solid var(--line);
+   padding: 10px 8px;
+   text-align: left;
+   vertical-align: middle;
+   font-size: 13px;
+   word-break: break-word;
+ }
 
-.log-panel pre {
-  height: 180px;
-  overflow: auto;
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 12px;
-  background: var(--log-bg);
-  color: var(--log-ink);
-  font-size: 12px;
-  line-height: 1.55;
-}
+ /* 表头：紫蓝透明背景 */
+ th {
+   color: var(--muted);
+   background: var(--table-head);
+ }
 
-@media (max-width: 980px) {
-  body {
-    grid-template-columns: 1fr;
-  }
+ /* 操作按钮列 */
+ td.actions {
+   display: flex;
+   gap: 8px;
+ }
 
-  .grid,
-  .restore-grid {
-    grid-template-columns: 1fr;
-  }
+ td.actions button {
+   min-height: 30px;
+   padding: 0 10px;
+ }
 
-  .schedule {
-    flex-wrap: wrap;
-  }
-}
+ /* 删除按钮：粉红色危险样式 */
+ td.actions button.delete {
+   background: var(--danger);
+ }
+
+ td.actions button.delete:hover {
+   background: var(--danger-dark);
+ }
+
+ /*7. 日志区域 */
+
+ .log-panel pre {
+   height: 180px;
+   overflow: auto;
+   margin: 0;
+   border: 1px solid var(--line);
+   border-radius: 6px;
+   padding: 12px;
+   background: var(--log-bg);
+   color: var(--log-ink);
+   font-size: 12px;
+   line-height: 1.55;
+ }
+
+ /* 8. 响应式布局（窄屏 <=980px 切换单栏）*/
+ @media (max-width: 980px) {
+   body {
+     grid-template-columns: 1fr;
+   }
+
+   .grid,
+   .restore-grid {
+     grid-template-columns: 1fr;
+   }
+
+   .schedule {
+     flex-wrap: wrap;
+   }
+ }

@@ -1,3 +1,4 @@
+//自动编译脚本
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot

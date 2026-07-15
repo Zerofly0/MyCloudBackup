@@ -1,46 +1,48 @@
-#include <algorithm>
-#include <array>
-#include <arpa/inet.h>
-#include <chrono>
-#include <csignal>
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <netinet/in.h>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <thread>
-#include <mutex>
-#include <unistd.h>
-#include <vector>
+#include <algorithm>    
+#include <array>        
+#include <arpa/inet.h>  
+#include <chrono>      
+#include <csignal>      
+#include <cstdint>      
+#include <filesystem>  
+#include <fstream>      
+#include <iomanip>      
+#include <iostream>     
+#include <netinet/in.h> 
+#include <sstream>     
+#include <stdexcept>    
+#include <string>      
+#include <sys/socket.h> 
+#include <sys/time.h>  
+#include <thread>       
+#include <mutex>       
+#include <unistd.h>    
+#include <vector>      
 
 namespace fs = std::filesystem;
 
 struct Record {
-    std::string filename;
-    uint64_t size = 0;
-    std::string uploadTime;
-    std::string lastAccessTime;
-    std::string packageHash;
-    std::string storagePath;
+    std::string filename;        
+    uint64_t size = 0;           
+    std::string uploadTime;      
+    std::string lastAccessTime;  
+    std::string packageHash;     
+    std::string storagePath;     
 };
 
 struct ServerState {
-    fs::path root = "backup_server";
-    fs::path backups = root / "backups";
-    fs::path metadata = root / "metadata.json";
-    int maxBackups = 10;
-    std::vector<Record> records;
+    fs::path root = "backup_server";           
+    fs::path backups = root / "backups";       
+    fs::path metadata = root / "metadata.json"; 
+    int maxBackups = 10;                        
+    std::vector<Record> records;                
 };
 
 static ServerState state;
+
 static std::mutex stateMutex;
 
+//获取当前时间的格式化字符串
 static std::string nowText() {
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
@@ -62,9 +64,11 @@ static std::string escapeJson(const std::string& s) {
     return out.str();
 }
 
+// Sha256 类 —— 纯 C++ 实现的 SHA-256 哈希算法
 class Sha256 {
 public:
     Sha256() { h = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19}; }
+    // 输入数据（可分多次调用），内部按 64 字节分块进行压缩
     void update(const uint8_t* data, size_t len) {
         bits += len * 8;
         while (len) {
@@ -74,6 +78,7 @@ public:
             if (used == 64) { transform(buf.data()); used = 0; }
         }
     }
+    // 完成哈希计算：填充消息、追加长度、执行最终压缩，返回 32 字节摘要
     std::array<uint8_t, 32> final() {
         buf[used++] = 0x80;
         if (used > 56) { while (used < 64) buf[used++] = 0; transform(buf.data()); used = 0; }
@@ -88,11 +93,13 @@ public:
         return out;
     }
 private:
-    std::array<uint32_t, 8> h{};
-    std::array<uint8_t, 64> buf{};
-    size_t used = 0;
-    uint64_t bits = 0;
+    std::array<uint32_t, 8> h{};   
+    std::array<uint8_t, 64> buf{}; 
+    size_t used = 0;               
+    uint64_t bits = 0;             
+    // 右旋转函数：SHA-256 中的基本位操作
     static uint32_t rotr(uint32_t x, uint32_t n) { return (x >> n) | (x << (32 - n)); }
+    // 压缩函数：处理一个 64 字节的消息块，执行 64 轮迭代更新哈希状态
     void transform(const uint8_t* c) {
         static const uint32_t k[64] = {
             0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -116,6 +123,7 @@ private:
     }
 };
 
+//计算文件的 SHA-256 哈希值
 static std::string sha256File(const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
     Sha256 sha;
@@ -127,27 +135,32 @@ static std::string sha256File(const fs::path& path) {
     return ss.str();
 }
 
+// 文件名安全检查
 static bool safeName(const std::string& name) {
     return !name.empty() && name.find('/') == std::string::npos && name.find('\\') == std::string::npos && name.find("..") == std::string::npos;
 }
 
+//读取文件的全部内容到字符串
 static std::string readFile(const fs::path& p) {
     std::ifstream in(p, std::ios::binary);
     std::ostringstream ss; ss << in.rdbuf(); return ss.str();
 }
 
+//从 JSON 字符串中提取指定 key 对应的字符串值
 static std::string getJsonString(const std::string& obj, const std::string& key) {
     auto p = obj.find("\"" + key + "\""); if (p == std::string::npos) return "";
     auto c = obj.find(':', p); auto q1 = obj.find('"', c + 1); auto q2 = obj.find('"', q1 + 1);
     return q1 == std::string::npos || q2 == std::string::npos ? "" : obj.substr(q1 + 1, q2 - q1 - 1);
 }
 
+//从 JSON 字符串中提取指定 key 对应的数值
 static uint64_t getJsonNumber(const std::string& obj, const std::string& key) {
     auto p = obj.find("\"" + key + "\""); if (p == std::string::npos) return 0;
     auto c = obj.find(':', p); auto s = obj.find_first_of("0123456789", c + 1);
     auto e = obj.find_first_not_of("0123456789", s); return s == std::string::npos ? 0 : std::stoull(obj.substr(s, e - s));
 }
 
+// 将内存中的元数据序列化为 JSON 格式字符串
 static std::string metadataJson() {
     std::ostringstream out;
     out << "{\n  \"maxBackups\":" << state.maxBackups << ",\n  \"records\":[\n";
@@ -163,12 +176,14 @@ static std::string metadataJson() {
     return out.str();
 }
 
+//将元数据持久化保存到 metadata.json
 static void saveMetadata() {
     fs::create_directories(state.root);
     std::ofstream out(state.metadata);
     out << metadataJson();
 }
 
+//从 metadata.json 加载元数据
 static void loadMetadata() {
     fs::create_directories(state.backups);
     if (!fs::exists(state.metadata)) { saveMetadata(); return; }
@@ -192,6 +207,7 @@ static void loadMetadata() {
     }
 }
 
+// LRU 淘汰策略：当备份数量超过 maxBackups 上限时自动执行
 static void evictIfNeeded() {
     while (static_cast<int>(state.records.size()) > state.maxBackups) {
         auto it = std::min_element(state.records.begin(), state.records.end(), [](const Record& a, const Record& b) {
@@ -204,6 +220,7 @@ static void evictIfNeeded() {
     saveMetadata();
 }
 
+//URL 解码
 static std::string urlDecode(const std::string& s) {
     std::string out;
     for (size_t i = 0; i < s.size(); ++i) {
@@ -216,6 +233,7 @@ static std::string urlDecode(const std::string& s) {
     return out;
 }
 
+//从 HTTP 请求 URL 中提取指定的查询参数
 static std::string queryParam(const std::string& target, const std::string& key) {
     auto q = target.find('?'); if (q == std::string::npos) return "";
     std::string query = target.substr(q + 1);
@@ -227,6 +245,7 @@ static std::string queryParam(const std::string& target, const std::string& key)
     return "";
 }
 
+//确保所有数据都通过 socket 发送完毕
 static void sendAll(int fd, const std::string& data) {
     const char* p = data.data();
     size_t n = data.size();
@@ -237,6 +256,7 @@ static void sendAll(int fd, const std::string& data) {
     }
 }
 
+// 构造 HTTP 响应报文
 static std::string response(const std::string& status, const std::string& type, const std::string& body) {
     std::ostringstream out;
     out << "HTTP/1.1 " << status << "\r\nContent-Type: " << type << "\r\nContent-Length: " << body.size()
@@ -244,6 +264,7 @@ static std::string response(const std::string& status, const std::string& type, 
     return out.str();
 }
 
+//以流式方式发送文件内容（用于文件下载）
 static void sendFile(int fd, const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
     uint64_t size = fs::file_size(path);
@@ -255,7 +276,9 @@ static void sendFile(int fd, const fs::path& path) {
     while (in) { in.read(buf.data(), buf.size()); if (in.gcount() > 0) send(fd, buf.data(), in.gcount(), 0); }
 }
 
+//核心函数：处理单个 HTTP 客户端请求
 static void handleClient(int fd) {
+    // 第一步：接收完整的 HTTP 请求头 
     std::string req;
     std::array<char, 8192> buf{};
     while (req.find("\r\n\r\n") == std::string::npos) {
@@ -264,9 +287,10 @@ static void handleClient(int fd) {
         req.append(buf.data(), n);
         if (req.size() > 1024 * 1024) throw std::runtime_error("request header too large");
     }
+    // 第二步：解析 HTTP 请求 
     auto headEnd = req.find("\r\n\r\n");
-    std::string head = req.substr(0, headEnd);
-    std::string body = req.substr(headEnd + 4);
+    std::string head = req.substr(0, headEnd);     
+    std::string body = req.substr(headEnd + 4);    
     std::istringstream hs(head);
     std::string method, target, version;
     hs >> method >> target >> version;
@@ -278,22 +302,26 @@ static void handleClient(int fd) {
         std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
         if (lower.rfind("content-length:", 0) == 0) contentLength = std::stoull(line.substr(15));
     }
+    //  第三步：路由分发，根据不同请求执行不同逻辑 
     if (method == "OPTIONS") {
         sendAll(fd, response("204 No Content", "text/plain", ""));
     } else if (method == "GET" && target == "/health") {
         sendAll(fd, response("200 OK", "application/json", "{\"status\":\"ok\"}"));
     } else if (method == "GET" && target == "/list") {
-        std::lock_guard<std::mutex> lock(stateMutex);
+        std::lock_guard<std::mutex> lock(stateMutex); // 加锁保护共享状态
         sendAll(fd, response("200 OK", "application/json", metadataJson()));
     } else if (method == "POST" && target.rfind("/upload", 0) == 0) {
         std::string filename = queryParam(target, "filename");
         if (!safeName(filename)) filename = "backup_" + std::to_string(std::time(nullptr)) + ".bak.enc";
         std::string maxText = queryParam(target, "maxBackups");
         int requestedMaxBackups = maxText.empty() ? 0 : std::max(1, std::stoi(maxText));
+        // 将上传的文件内容写入备份目录
         fs::path dest = state.backups / filename;
         std::ofstream out(dest, std::ios::binary);
+        // 先写入请求头之后已接收到的 body 数据
         size_t written = std::min(body.size(), contentLength);
         if (written > 0) out.write(body.data(), static_cast<std::streamsize>(written));
+        // 如果请求体数据未接收完，继续从 socket 读取剩余数据（流式接收大文件）
         while (written < contentLength) {
             ssize_t n = recv(fd, buf.data(), buf.size(), 0);
             if (n <= 0) break;
@@ -303,24 +331,27 @@ static void handleClient(int fd) {
             written += toWrite;
         }
         out.close();
+        // 检查上传完整性：实际写入字节数必须等于 Content-Length 声明的大小
         if (written != contentLength) {
             fs::remove(dest);
             sendAll(fd, response("400 Bad Request", "application/json", "{\"success\":false,\"message\":\"incomplete upload\"}"));
             return;
         }
+        // 上传成功：创建元数据记录
         Record r;
         r.filename = filename;
-        r.size = fs::file_size(dest);
-        r.uploadTime = nowText();
-        r.lastAccessTime = r.uploadTime;
-        r.packageHash = sha256File(dest);
-        r.storagePath = "backups/" + filename;
+        r.size = fs::file_size(dest);          
+        r.uploadTime = nowText();              
+        r.lastAccessTime = r.uploadTime;       
+        r.packageHash = sha256File(dest);      
+        r.storagePath = "backups/" + filename; 
+        // 加锁更新全局状态
         {
             std::lock_guard<std::mutex> lock(stateMutex);
-            if (requestedMaxBackups > 0) state.maxBackups = requestedMaxBackups;
+            if (requestedMaxBackups > 0) state.maxBackups = requestedMaxBackups; 
             state.records.erase(std::remove_if(state.records.begin(), state.records.end(), [&](const Record& item) { return item.filename == filename; }), state.records.end());
             state.records.push_back(r);
-            evictIfNeeded();
+            evictIfNeeded();            
         }
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"upload success\"}"));
     } else if (method == "GET" && target.rfind("/download/", 0) == 0) {
@@ -331,9 +362,9 @@ static void handleClient(int fd) {
             {
                 std::lock_guard<std::mutex> lock(stateMutex);
                 for (auto& r : state.records) if (r.filename == filename) r.lastAccessTime = nowText();
-                saveMetadata();
+                saveMetadata(); 
             }
-            sendFile(fd, state.backups / filename);
+            sendFile(fd, state.backups / filename); 
         }
     } else if (method == "DELETE" && target.rfind("/delete/", 0) == 0) {
         std::string filename = urlDecode(target.substr(std::string("/delete/").size()));
@@ -344,6 +375,7 @@ static void handleClient(int fd) {
             saveMetadata();
         }
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"delete success\"}"));
+    // [配置修改] POST /config/max-backups：动态调整最大备份文件数
     } else if (method == "POST" && target == "/config/max-backups") {
         while (body.size() < contentLength) {
             ssize_t n = recv(fd, buf.data(), buf.size(), 0);
@@ -354,7 +386,6 @@ static void handleClient(int fd) {
             std::lock_guard<std::mutex> lock(stateMutex);
             int value = static_cast<int>(getJsonNumber(body, "maxBackups"));
             if (value > 0) state.maxBackups = value;
-            evictIfNeeded();
         }
         sendAll(fd, response("200 OK", "application/json", "{\"success\":true,\"message\":\"config updated\"}"));
     } else {
@@ -362,12 +393,13 @@ static void handleClient(int fd) {
     }
 }
 
+// 客户端会话管理函数
 static void handleClientSession(int fd) {
     timeval timeout{};
     timeout.tv_sec = 60;
     timeout.tv_usec = 0;
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)); // 接收超时
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)); // 发送超时
     try {
         handleClient(fd);
     } catch (const std::exception& e) {
@@ -376,27 +408,36 @@ static void handleClientSession(int fd) {
     close(fd);
 }
 
+//服务器主函数
 int main(int argc, char** argv) {
-    int port = 8080;
-    if (argc > 1) port = std::stoi(argv[1]);
-    if (argc > 2) state.root = argv[2];
+    int port = 8080;                               
+    if (argc > 1) port = std::stoi(argv[1]);        
+    if (argc > 2) state.root = argv[2];            
     state.backups = state.root / "backups";
     state.metadata = state.root / "metadata.json";
-    loadMetadata();
-    std::signal(SIGPIPE, SIG_IGN);
-    int server = socket(AF_INET, SOCK_STREAM, 0);
+    loadMetadata();                                 
+    std::signal(SIGPIPE, SIG_IGN);                
+
+    // 创建 TCP Socket
+    int server = socket(AF_INET, SOCK_STREAM, 0);   
     int opt = 1;
-    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); 
+
+    // 绑定地址和端口
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = INADDR_ANY;             
+    addr.sin_port = htons(port);                   
     if (bind(server, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) throw std::runtime_error("bind failed");
+
+    // 开始监听，backlog=16 表示最多排队 16 个未处理连接
     if (listen(server, 16) != 0) throw std::runtime_error("listen failed");
     std::cout << "backup_server listening on http://0.0.0.0:" << port << std::endl;
+
+    // 主循环：不断接受新连接，每个连接由独立线程处理（多线程并发模型）
     while (true) {
-        int fd = accept(server, nullptr, nullptr);
-        if (fd < 0) continue;
-        std::thread(handleClientSession, fd).detach();
+        int fd = accept(server, nullptr, nullptr);  
+        if (fd < 0) continue;                       
+        std::thread(handleClientSession, fd).detach(); 
     }
 }
