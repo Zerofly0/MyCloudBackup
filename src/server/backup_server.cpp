@@ -19,7 +19,9 @@
 #include <unistd.h>    
 #include <vector>      
 
+
 namespace fs = std::filesystem;
+
 
 struct Record {
     std::string filename;        
@@ -30,6 +32,7 @@ struct Record {
     std::string storagePath;     
 };
 
+
 struct ServerState {
     fs::path root = "backup_server";           
     fs::path backups = root / "backups";       
@@ -38,21 +41,23 @@ struct ServerState {
     std::vector<Record> records;                
 };
 
+
 static ServerState state;
 
 static std::mutex stateMutex;
 
 //获取当前时间的格式化字符串
 static std::string nowText() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    auto now = std::chrono::system_clock::now();//获取当前时间点
+    std::time_t t = std::chrono::system_clock::to_time_t(now);//将时间点转换为时间_t
     std::tm tm{};
-    localtime_r(&t, &tm);
+    localtime_r(&t, &tm);//将时间_t转换为本地时间tm
     std::ostringstream ss;
-    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");//将时间tm格式化为字符串
     return ss.str();
 }
 
+//转义 JSON 字符串
 static std::string escapeJson(const std::string& s) {
     std::ostringstream out;
     for (char c : s) {
@@ -135,12 +140,12 @@ static std::string sha256File(const fs::path& path) {
     return ss.str();
 }
 
-// 文件名安全检查
+// 文件名安全检查，不能包含 / \ .. 等非法字符
 static bool safeName(const std::string& name) {
     return !name.empty() && name.find('/') == std::string::npos && name.find('\\') == std::string::npos && name.find("..") == std::string::npos;
 }
 
-//读取文件的全部内容到字符串
+// 读取文件的全部内容到字符串，支持二进制文件，主要用于读取metadata.json
 static std::string readFile(const fs::path& p) {
     std::ifstream in(p, std::ios::binary);
     std::ostringstream ss; ss << in.rdbuf(); return ss.str();
@@ -160,30 +165,8 @@ static uint64_t getJsonNumber(const std::string& obj, const std::string& key) {
     auto e = obj.find_first_not_of("0123456789", s); return s == std::string::npos ? 0 : std::stoull(obj.substr(s, e - s));
 }
 
-// 将内存中的元数据序列化为 JSON 格式字符串
-static std::string metadataJson() {
-    std::ostringstream out;
-    out << "{\n  \"maxBackups\":" << state.maxBackups << ",\n  \"records\":[\n";
-    for (size_t i = 0; i < state.records.size(); ++i) {
-        const auto& r = state.records[i];
-        out << "    {\"filename\":\"" << escapeJson(r.filename) << "\",\"size\":" << r.size
-            << ",\"uploadTime\":\"" << r.uploadTime << "\",\"lastAccessTime\":\"" << r.lastAccessTime
-            << "\",\"packageHash\":\"" << r.packageHash << "\",\"storagePath\":\"" << escapeJson(r.storagePath) << "\"}";
-        if (i + 1 < state.records.size()) out << ",";
-        out << "\n";
-    }
-    out << "  ]\n}\n";
-    return out.str();
-}
-
-//将元数据持久化保存到 metadata.json
-static void saveMetadata() {
-    fs::create_directories(state.root);
-    std::ofstream out(state.metadata);
-    out << metadataJson();
-}
-
-//从 metadata.json 加载元数据
+/*将提取的数据组装成 Record 列表存入内存，loadMetadata() 在 main() 中服务器启动时被调用一次，
+实现了服务重启后的状态恢复——之前上传过的备份文件信息不会丢失。这是元数据持久化机制的核心*/
 static void loadMetadata() {
     fs::create_directories(state.backups);
     if (!fs::exists(state.metadata)) { saveMetadata(); return; }
@@ -206,6 +189,33 @@ static void loadMetadata() {
         pos = end + 1;
     }
 }
+
+// 将内存中的元数据序列化为 JSON 格式字符串
+ 
+static std::string metadataJson() {
+    std::ostringstream out;
+    out << "{\n  \"maxBackups\":" << state.maxBackups << ",\n  \"records\":[\n";
+    for (size_t i = 0; i < state.records.size(); ++i) {
+        const auto& r = state.records[i];
+        out << "    {\"filename\":\"" << escapeJson(r.filename) << "\",\"size\":" << r.size
+            << ",\"uploadTime\":\"" << r.uploadTime << "\",\"lastAccessTime\":\"" << r.lastAccessTime
+            << "\",\"packageHash\":\"" << r.packageHash << "\",\"storagePath\":\"" << escapeJson(r.storagePath) << "\"}";
+        if (i + 1 < state.records.size()) out << ",";
+        out << "\n";
+    }
+    out << "  ]\n}\n";
+    return out.str();
+}
+
+//将元数据持久化保存到 metadata.json
+
+static void saveMetadata() {
+    fs::create_directories(state.root);
+    std::ofstream out(state.metadata);
+    out << metadataJson();
+}
+
+
 
 // LRU 淘汰策略：当备份数量超过 maxBackups 上限时自动执行
 static void evictIfNeeded() {
@@ -303,6 +313,7 @@ static void handleClient(int fd) {
         if (lower.rfind("content-length:", 0) == 0) contentLength = std::stoull(line.substr(15));
     }
     //  第三步：路由分发，根据不同请求执行不同逻辑 
+
     if (method == "OPTIONS") {
         sendAll(fd, response("204 No Content", "text/plain", ""));
     } else if (method == "GET" && target == "/health") {
@@ -310,6 +321,7 @@ static void handleClient(int fd) {
     } else if (method == "GET" && target == "/list") {
         std::lock_guard<std::mutex> lock(stateMutex); // 加锁保护共享状态
         sendAll(fd, response("200 OK", "application/json", metadataJson()));
+
     } else if (method == "POST" && target.rfind("/upload", 0) == 0) {
         std::string filename = queryParam(target, "filename");
         if (!safeName(filename)) filename = "backup_" + std::to_string(std::time(nullptr)) + ".bak.enc";
