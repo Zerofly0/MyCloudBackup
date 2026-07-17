@@ -247,6 +247,7 @@ C++ 核心程序：F:\vscodework\MyCloudBackup\build\backup_core.exe
 ```text
 http://8.137.100.109:8080
 ```
+==若无法连接，则服务器已到期/关闭连接，请重新配置服务器（参见下述操作）==
 
 在本机 PowerShell 中测试：
 
