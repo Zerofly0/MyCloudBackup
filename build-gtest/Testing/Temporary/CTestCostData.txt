@@ -1,0 +1,7 @@
+SafeNameTest.AcceptsNormalNames 1 0.0136245
+SafeNameTest.RejectsEmptyName 1 0.0148063
+SafeNameTest.RejectsDangerousPaths 1 0.0164065
+UrlDecodeTest.DecodesPercentEncodingAndPlus 1 0.0125746
+QueryParamTest.ReturnsExistingParameters 1 0.011627
+QueryParamTest.ReturnsEmptyWhenParameterIsMissing 1 0.0125373
+---

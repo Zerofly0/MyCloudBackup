@@ -1,0 +1,54 @@
+{
+  "tests": 6,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "SafeNameTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "AcceptsNormalNames",
+          "file": "D:\/MyCloudBackup\/tests\/server_utils_test.cpp",
+          "line": 5
+        },
+        {
+          "name": "RejectsEmptyName",
+          "file": "D:\/MyCloudBackup\/tests\/server_utils_test.cpp",
+          "line": 10
+        },
+        {
+          "name": "RejectsDangerousPaths",
+          "file": "D:\/MyCloudBackup\/tests\/server_utils_test.cpp",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "name": "UrlDecodeTest",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "DecodesPercentEncodingAndPlus",
+          "file": "D:\/MyCloudBackup\/tests\/server_utils_test.cpp",
+          "line": 21
+        }
+      ]
+    },
+    {
+      "name": "QueryParamTest",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "ReturnsExistingParameters",
+          "file": "D:\/MyCloudBackup\/tests\/server_utils_test.cpp",
+          "line": 27
+        },
+        {
+          "name": "ReturnsEmptyWhenParameterIsMissing",
+          "file": "D:\/MyCloudBackup\/tests\/server_utils_test.cpp",
+          "line": 35
+        }
+      ]
+    }
+  ]
+}

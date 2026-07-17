@@ -1,0 +1,6 @@
+D:/MyCloudBackup/build-gtest/CMakeFiles/backup_core.dir
+D:/MyCloudBackup/build-gtest/CMakeFiles/server_utils.dir
+D:/MyCloudBackup/build-gtest/CMakeFiles/server_utils_test.dir
+D:/MyCloudBackup/build-gtest/CMakeFiles/test.dir
+D:/MyCloudBackup/build-gtest/CMakeFiles/edit_cache.dir
+D:/MyCloudBackup/build-gtest/CMakeFiles/rebuild_cache.dir

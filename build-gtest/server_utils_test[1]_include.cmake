@@ -1,0 +1,5 @@
+if(EXISTS "D:/MyCloudBackup/build-gtest/server_utils_test[1]_tests.cmake")
+  include("D:/MyCloudBackup/build-gtest/server_utils_test[1]_tests.cmake")
+else()
+  add_test(server_utils_test_NOT_BUILT server_utils_test_NOT_BUILT)
+endif()

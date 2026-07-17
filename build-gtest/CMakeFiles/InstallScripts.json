@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/MyCloudBackup/build-gtest/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -1,0 +1,5 @@
+﻿"Item","Value","Unit","Extra"
+"Upload","0.599","seconds","1.67 MB/s"
+"Download","0.846","seconds","1.18 MB/s"
+"HealthConcurrent","121.59","average ms","13.06 req/s; error 0%"
+"ListConcurrent","117.63","average ms","18.03 req/s; error 0%"

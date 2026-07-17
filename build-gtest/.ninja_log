@@ -1,0 +1,7 @@
+# ninja log v7
+72	2375	8058930588779028	CMakeFiles/server_utils.dir/src/server/server_utils.cpp.obj	20cc4431bb7a92b3
+2378	3327	8058930611838704	libserver_utils.a	4f84b6d236c721bb
+89	4188	8058930588948901	CMakeFiles/server_utils_test.dir/tests/server_utils_test.cpp.obj	d3e51420752e16ee
+4191	4902	8058930636952785	server_utils_test.exe	69a41750821ae2a6
+4191	4902	8058930636952785	server_utils_test[1]_tests.cmake	69a41750821ae2a6
+4191	4902	8058930636952785	D:/MyCloudBackup/build-gtest/server_utils_test[1]_tests.cmake	69a41750821ae2a6
